@@ -29,6 +29,10 @@ REGION_MAPPING = {
     "es-ES": "Spain",  # Limit Spanish voices to Spain
 }
 
+# Pricing rates for Azure TTS (standard vs neural)
+STANDARD_VOICE_COST_PER_CHARACTER = 0.000004  # $4 per 1 million characters
+NEURAL_VOICE_COST_PER_CHARACTER = 0.000016    # $16 per 1 million characters
+
 # Function to get available voices from Azure Speech Service
 def get_available_voices(api_key, region):
     speech_config = speechsdk.SpeechConfig(subscription=api_key, region=region)
@@ -64,6 +68,15 @@ def organize_voices_by_type(voices):
                 standard_voices["English"].append(voice)
 
     return neural_voices, standard_voices
+
+# Function to estimate the cost of conversion
+def estimate_conversion_cost(text, voice_type):
+    total_characters = len(text)
+    if "Neural" in voice_type:
+        cost = total_characters * NEURAL_VOICE_COST_PER_CHARACTER
+    else:
+        cost = total_characters * STANDARD_VOICE_COST_PER_CHARACTER
+    return cost, total_characters
 
 # Function to preview selected voice with a greeting and introduction
 def preview_voice(voice, language):
