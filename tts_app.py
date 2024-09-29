@@ -51,6 +51,33 @@ def organize_voices_by_language(voices):
 
     return voices_by_language
 
+# Function to synthesize a chunk of text and save as MP3
+def synthesize_chunk(text_chunk, voice, chunk_number):
+    output_filename = f"chunk_{chunk_number}.mp3"
+    try:
+        # Configure the Azure speech synthesizer
+        speech_config = speechsdk.SpeechConfig(subscription=api_key, region=region)
+        audio_config = speechsdk.audio.AudioOutputConfig(filename=output_filename)
+        speech_config.speech_synthesis_voice_name = voice
+
+        synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
+
+        # Convert the text chunk to speech
+        result = synthesizer.speak_text_async(text_chunk).get()
+
+        # Check the result
+        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+            return output_filename
+        elif result.reason == speechsdk.ResultReason.Canceled:
+            cancellation_details = result.cancellation_details
+            st.error(f"Speech synthesis canceled: {cancellation_details.reason}")
+            if cancellation_details.reason == speechsdk.CancellationReason.Error:
+                st.error(f"Error details: {cancellation_details.error_details}")
+                st.error(f"Did you set the correct API key and region?")
+    except Exception as e:
+        st.error(f"An error occurred during speech synthesis: {str(e)}")
+    return None
+
 # Function to preview selected voice with a greeting and introduction
 def preview_voice(voice, language):
     if language == "English":
