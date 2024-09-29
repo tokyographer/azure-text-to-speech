@@ -21,6 +21,14 @@ except KeyError:
     st.error("The secrets.toml file does not have the correct keys. Please check your file.")
     st.stop()
 
+# Map regions to full names for English and Spanish locales
+REGION_MAPPING = {
+    "en-US": "United States",
+    "en-GB": "United Kingdom",
+    "es-ES": "Spain",
+    "es-MX": "Mexico"
+}
+
 # Function to get available voices from Azure Speech Service
 def get_available_voices(api_key, region):
     speech_config = speechsdk.SpeechConfig(subscription=api_key, region=region)
@@ -81,8 +89,11 @@ def text_to_speech(text, voice, output_filename="output.mp3"):
         st.error(f"An error occurred during speech synthesis: {str(e)}")
 
 # Function to preview selected voice with a greeting and introduction
-def preview_voice(voice):
-    preview_text = "Hello! My name is {} and I will be your voice.".format(voice)
+def preview_voice(voice, language):
+    if language == "English":
+        preview_text = "Hello! My name is {} and I will be your voice.".format(voice)
+    else:
+        preview_text = "¡Hola! Me llamo {} y seré tu voz.".format(voice)
     output_filename = "preview.mp3"
     text_to_speech(preview_text, voice, output_filename)
     # Play the preview
@@ -120,12 +131,12 @@ def main():
     selected_language = st.selectbox("Select Language", options=["English", "Spanish"])
 
     # Step 3: Let user select a voice from the selected language
-    voice_options = {voice.short_name: f"{voice.local_name} ({voice.locale})" for voice in languages[selected_language]}
+    voice_options = {voice.short_name: f"{voice.local_name} ({REGION_MAPPING.get(voice.locale, voice.locale)})" for voice in languages[selected_language]}
     selected_voice = st.selectbox("Select Voice", options=list(voice_options.keys()), format_func=lambda x: voice_options[x])
 
     # Step 4: Voice preview
     if st.button("Preview Voice"):
-        preview_voice(selected_voice)
+        preview_voice(selected_voice, selected_language)
 
     # Step 5: File uploader for text or PDF
     uploaded_file = st.file_uploader("Upload a text or PDF file", type=["txt", "pdf"])
