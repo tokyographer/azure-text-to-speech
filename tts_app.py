@@ -28,7 +28,17 @@ def get_available_voices(api_key, region):
     voices = synthesizer.get_voices_async().get().voices
     return voices
 
-# Function to convert text to speech with progress bar and downloadable MP3
+# Organize voices by language
+def organize_voices_by_language(voices):
+    languages = {}
+    for voice in voices:
+        lang = voice.locale
+        if lang not in languages:
+            languages[lang] = []
+        languages[lang].append(voice)
+    return languages
+
+# Function to synthesize text and return as MP3 file
 def text_to_speech(text, voice, output_filename="output.mp3"):
     try:
         speech_config = speechsdk.SpeechConfig(subscription=api_key, region=region)
@@ -67,6 +77,14 @@ def text_to_speech(text, voice, output_filename="output.mp3"):
     except Exception as e:
         st.error(f"An error occurred during speech synthesis: {str(e)}")
 
+# Function to preview selected voice with a sample sentence
+def preview_voice(voice):
+    sample_text = "This is a sample voice preview."
+    output_filename = "preview.mp3"
+    text_to_speech(sample_text, voice, output_filename)
+    # Play the preview
+    st.audio(output_filename)
+
 # Function to read a text file
 def read_text_file(file):
     try:
@@ -91,12 +109,22 @@ def read_pdf(file):
 def main():
     st.title("Text-to-Speech Converter")
 
-    # Step 1: Display available voices and allow user to select
+    # Step 1: Display available voices and organize by language
     voices = get_available_voices(api_key, region)
-    voice_options = {voice.short_name: f"{voice.local_name} ({voice.locale})" for voice in voices}
+    languages = organize_voices_by_language(voices)
+
+    # Step 2: Let user select a language
+    selected_language = st.selectbox("Select Language", options=list(languages.keys()))
+
+    # Step 3: Let user select a voice from the selected language
+    voice_options = {voice.short_name: f"{voice.local_name} ({voice.locale})" for voice in languages[selected_language]}
     selected_voice = st.selectbox("Select Voice", options=list(voice_options.keys()), format_func=lambda x: voice_options[x])
 
-    # File uploader for text or PDF
+    # Step 4: Voice preview
+    if st.button("Preview Voice"):
+        preview_voice(selected_voice)
+
+    # Step 5: File uploader for text or PDF
     uploaded_file = st.file_uploader("Upload a text or PDF file", type=["txt", "pdf"])
 
     if uploaded_file is not None:
