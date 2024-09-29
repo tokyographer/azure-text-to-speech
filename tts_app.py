@@ -28,14 +28,17 @@ def get_available_voices(api_key, region):
     voices = synthesizer.get_voices_async().get().voices
     return voices
 
-# Organize voices by language
+# Organize voices by English and Spanish languages only
 def organize_voices_by_language(voices):
-    languages = {}
+    languages = {
+        "English": [],
+        "Spanish": []
+    }
     for voice in voices:
-        lang = voice.locale
-        if lang not in languages:
-            languages[lang] = []
-        languages[lang].append(voice)
+        if voice.locale.startswith("en"):  # English
+            languages["English"].append(voice)
+        elif voice.locale.startswith("es"):  # Spanish
+            languages["Spanish"].append(voice)
     return languages
 
 # Function to synthesize text and return as MP3 file
@@ -77,11 +80,11 @@ def text_to_speech(text, voice, output_filename="output.mp3"):
     except Exception as e:
         st.error(f"An error occurred during speech synthesis: {str(e)}")
 
-# Function to preview selected voice with a sample sentence
+# Function to preview selected voice with a greeting and introduction
 def preview_voice(voice):
-    sample_text = "This is a sample voice preview."
+    preview_text = "Hello! My name is {} and I will be your voice.".format(voice)
     output_filename = "preview.mp3"
-    text_to_speech(sample_text, voice, output_filename)
+    text_to_speech(preview_text, voice, output_filename)
     # Play the preview
     st.audio(output_filename)
 
@@ -109,12 +112,12 @@ def read_pdf(file):
 def main():
     st.title("Text-to-Speech Converter")
 
-    # Step 1: Display available voices and organize by language
+    # Step 1: Display available voices and organize by English and Spanish
     voices = get_available_voices(api_key, region)
     languages = organize_voices_by_language(voices)
 
     # Step 2: Let user select a language
-    selected_language = st.selectbox("Select Language", options=list(languages.keys()))
+    selected_language = st.selectbox("Select Language", options=["English", "Spanish"])
 
     # Step 3: Let user select a voice from the selected language
     voice_options = {voice.short_name: f"{voice.local_name} ({voice.locale})" for voice in languages[selected_language]}
