@@ -4,6 +4,7 @@ from PyPDF2 import PdfReader
 import toml
 import sys
 import os
+import textwrap
 
 # Log the current Python environment
 st.write(f"Python executable: {sys.executable}")
@@ -29,6 +30,10 @@ REGION_MAPPING = {
     "es-MX": "Mexico"
 }
 
+# Pricing for Azure Speech-to-Text
+STANDARD_VOICE_COST_PER_CHARACTER = 0.000004  # $4 per 1 million characters
+NEURAL_VOICE_COST_PER_CHARACTER = 0.000016    # $16 per 1 million characters
+
 # Function to get available voices from Azure Speech Service
 def get_available_voices(api_key, region):
     speech_config = speechsdk.SpeechConfig(subscription=api_key, region=region)
@@ -49,8 +54,54 @@ def organize_voices_by_language(voices):
             languages["Spanish"].append(voice)
     return languages
 
-# Function to synthesize text and return as MP3 file
-def text_to_speech(text, voice, output_filename="output.mp3"):
+# Function to split text into smaller chunks (less than 524288 bytes)
+def split_text_into_chunks(text, max_chunk_size=5000):
+    return textwrap.wrap(text, max_chunk_size)
+
+# Function to estimate cost of conversion
+def estimate_conversion_cost(text, voice_type):
+    total_characters = len(text)
+    if "Neural" in voice_type:
+        cost = total_characters * NEURAL_VOICE_COST_PER_CHARACTER
+    else:
+        cost = total_characters * STANDARD_VOICE_COST_PER_CHARACTER
+    return cost, total_characters
+
+# Function to synthesize text in chunks and concatenate them
+def text_to_speech_in_chunks(text, voice, voice_type, output_filename="output.mp3"):
+    chunks = split_text_into_chunks(text)
+    st.info(f"Text is split into {len(chunks)} chunks for processing.")
+
+    # Estimate cost
+    estimated_cost, total_characters = estimate_conversion_cost(text, voice_type)
+    st.info(f"Estimated cost: ${estimated_cost:.4f} for {total_characters} characters.")
+
+    audio_files = []
+    for i, chunk in enumerate(chunks):
+        st.info(f"Processing chunk {i + 1}...")
+        audio_file = synthesize_chunk(chunk, voice, i + 1)
+        if audio_file:
+            audio_files.append(audio_file)
+
+    # Combine the audio files into a single MP3 file
+    if audio_files:
+        with open(output_filename, "wb") as output:
+            for audio_file in audio_files:
+                with open(audio_file, "rb") as af:
+                    output.write(af.read())
+        st.success(f"All chunks synthesized successfully and saved as {output_filename}")
+        # Create download link for the combined MP3 file
+        with open(output_filename, "rb") as f:
+            st.download_button(
+                label="Download MP3",
+                data=f,
+                file_name=output_filename,
+                mime="audio/mpeg"
+            )
+
+# Function to synthesize text to speech and return the audio file for each chunk
+def synthesize_chunk(text_chunk, voice, chunk_number):
+    output_filename = f"chunk_{chunk_number}.mp3"
     try:
         speech_config = speechsdk.SpeechConfig(subscription=api_key, region=region)
         audio_config = speechsdk.audio.AudioOutputConfig(filename=output_filename)
@@ -59,26 +110,12 @@ def text_to_speech(text, voice, output_filename="output.mp3"):
         # Create a speech synthesizer
         synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
 
-        # Add progress bar
-        progress_bar = st.progress(0)
-
-        # Synthesize the text to speech with progress updates
-        result = synthesizer.speak_text_async(text).get()
-
-        # Update progress to 100% on completion
-        progress_bar.progress(100)
+        # Synthesize the chunk to speech
+        result = synthesizer.speak_text_async(text_chunk).get()
 
         # Check the result
         if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-            st.success("Speech synthesized successfully.")
-            # Create download link for MP3 file
-            with open(output_filename, "rb") as f:
-                st.download_button(
-                    label="Download MP3",
-                    data=f,
-                    file_name=output_filename,
-                    mime="audio/mpeg"
-                )
+            return output_filename
         elif result.reason == speechsdk.ResultReason.Canceled:
             cancellation_details = result.cancellation_details
             st.error(f"Speech synthesis canceled: {cancellation_details.reason}")
@@ -87,6 +124,7 @@ def text_to_speech(text, voice, output_filename="output.mp3"):
                 st.error(f"Did you set the correct API key and region?")
     except Exception as e:
         st.error(f"An error occurred during speech synthesis: {str(e)}")
+    return None
 
 # Function to preview selected voice with a greeting and introduction
 def preview_voice(voice, language):
@@ -95,7 +133,7 @@ def preview_voice(voice, language):
     else:
         preview_text = "¡Hola! Me llamo {} y seré tu voz.".format(voice)
     output_filename = "preview.mp3"
-    text_to_speech(preview_text, voice, output_filename)
+    text_to_speech_in_chunks(preview_text, voice, output_filename)
     # Play the preview
     st.audio(output_filename)
 
@@ -152,8 +190,8 @@ def main():
         if text:
             if st.button("Convert to Speech"):
                 output_filename = "output.mp3"
-                # Convert text to speech and show progress
-                text_to_speech(text, selected_voice, output_filename)
+                # Convert text to speech in chunks
+                text_to_speech_in_chunks(text, selected_voice, selected_voice, output_filename)
         else:
             st.error("Unable to extract text from the uploaded file.")
 
