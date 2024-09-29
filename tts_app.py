@@ -94,6 +94,26 @@ def text_to_speech_in_chunks(text, voice, output_filename="output.mp3"):
                 mime="audio/mpeg"
             )
 
+# Function to read a text file
+def read_text_file(file):
+    try:
+        return file.read().decode("utf-8")
+    except Exception as e:
+        st.error(f"An error occurred while reading the text file: {str(e)}")
+        return None
+
+# Function to read a PDF file
+def read_pdf(file):
+    try:
+        pdf = PdfReader(file)
+        text = ""
+        for page in range(len(pdf.pages)):
+            text += pdf.pages[page].extract_text()
+        return text
+    except Exception as e:
+        st.error(f"An error occurred while reading the PDF file: {str(e)}")
+        return None
+
 # Streamlit App
 def main():
     st.title("Text-to-Speech Converter")
