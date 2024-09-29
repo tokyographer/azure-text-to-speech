@@ -1,8 +1,12 @@
 import streamlit as st
 import azure.cognitiveservices.speech as speechsdk
 from PyPDF2 import PdfReader
-import os
 import toml
+import sys
+
+# Log the current Python environment
+st.write(f"Python executable: {sys.executable}")
+st.write(f"Python version: {sys.version}")
 
 # Load secrets from toml file
 try:
@@ -11,11 +15,12 @@ try:
     region = secrets['speech_service']['region']
 except FileNotFoundError:
     st.error("The secrets.toml file was not found. Please ensure it is in the correct location.")
+    st.stop()
 except KeyError:
     st.error("The secrets.toml file does not have the correct keys. Please check your file.")
     st.stop()
 
-# Function to convert text to speech
+# Function to convert text to speech with detailed error logging
 def text_to_speech(text):
     try:
         # Configure the speech service
@@ -36,6 +41,7 @@ def text_to_speech(text):
             st.error(f"Speech synthesis canceled: {cancellation_details.reason}")
             if cancellation_details.reason == speechsdk.CancellationReason.Error:
                 st.error(f"Error details: {cancellation_details.error_details}")
+                st.error(f"Did you set the correct API key and region?")
     except Exception as e:
         st.error(f"An error occurred during speech synthesis: {str(e)}")
 
