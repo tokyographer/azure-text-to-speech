@@ -48,14 +48,17 @@ def organize_voices_by_type(voices):
     }
     
     for voice in voices:
+        # Print the voice type to check its actual value
+        st.write(f"Voice: {voice.short_name}, Type: {voice.voice_type}")
+        
         # Filter only Spanish voices from Spain and English voices
         if voice.locale == "es-ES":  # Spanish (Spain)
-            if voice.voice_type == speechsdk.SynthesisVoiceType.Neural:
+            if "Neural" in str(voice.voice_type):  # Compare with string "Neural"
                 neural_voices["Spanish (Spain)"].append(voice)
             else:
                 standard_voices["Spanish (Spain)"].append(voice)
         elif voice.locale.startswith("en"):  # English voices
-            if voice.voice_type == speechsdk.SynthesisVoiceType.Neural:
+            if "Neural" in str(voice.voice_type):  # Compare with string "Neural"
                 neural_voices["English"].append(voice)
             else:
                 standard_voices["English"].append(voice)
