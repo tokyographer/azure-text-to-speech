@@ -29,10 +29,6 @@ REGION_MAPPING = {
     "es-ES": "Spain",  # Limit Spanish voices to Spain
 }
 
-# Pricing rates for Azure TTS (standard vs neural)
-STANDARD_VOICE_COST_PER_CHARACTER = 0.000004  # $4 per 1 million characters
-NEURAL_VOICE_COST_PER_CHARACTER = 0.000016    # $16 per 1 million characters
-
 # Function to get available voices from Azure Speech Service
 def get_available_voices(api_key, region):
     speech_config = speechsdk.SpeechConfig(subscription=api_key, region=region)
@@ -40,43 +36,20 @@ def get_available_voices(api_key, region):
     voices = synthesizer.get_voices_async().get().voices
     return voices
 
-# Organize voices by type (Neural and Standard) and by region
-def organize_voices_by_type(voices):
-    neural_voices = {
-        "English": [],
-        "Spanish (Spain)": []
-    }
-    standard_voices = {
+# Organize voices by language and region (English and Spanish (Spain))
+def organize_voices_by_language(voices):
+    voices_by_language = {
         "English": [],
         "Spanish (Spain)": []
     }
     
     for voice in voices:
-        # Print the voice type to check its actual value
-        st.write(f"Voice: {voice.short_name}, Type: {voice.voice_type}")
-        
-        # Filter only Spanish voices from Spain and English voices
         if voice.locale == "es-ES":  # Spanish (Spain)
-            if "Neural" in str(voice.voice_type):  # Compare with string "Neural"
-                neural_voices["Spanish (Spain)"].append(voice)
-            else:
-                standard_voices["Spanish (Spain)"].append(voice)
+            voices_by_language["Spanish (Spain)"].append(voice)
         elif voice.locale.startswith("en"):  # English voices
-            if "Neural" in str(voice.voice_type):  # Compare with string "Neural"
-                neural_voices["English"].append(voice)
-            else:
-                standard_voices["English"].append(voice)
+            voices_by_language["English"].append(voice)
 
-    return neural_voices, standard_voices
-
-# Function to estimate the cost of conversion
-def estimate_conversion_cost(text, voice_type):
-    total_characters = len(text)
-    if "Neural" in voice_type:
-        cost = total_characters * NEURAL_VOICE_COST_PER_CHARACTER
-    else:
-        cost = total_characters * STANDARD_VOICE_COST_PER_CHARACTER
-    return cost, total_characters
+    return voices_by_language
 
 # Function to preview selected voice with a greeting and introduction
 def preview_voice(voice, language):
@@ -94,13 +67,9 @@ def split_text_into_chunks(text, max_chunk_size=5000):
     return textwrap.wrap(text, max_chunk_size)
 
 # Function to synthesize text in chunks and concatenate them
-def text_to_speech_in_chunks(text, voice, voice_type, output_filename="output.mp3"):
+def text_to_speech_in_chunks(text, voice, output_filename="output.mp3"):
     chunks = split_text_into_chunks(text)
     st.info(f"Text is split into {len(chunks)} chunks for processing.")
-
-    # Estimate cost
-    estimated_cost, total_characters = estimate_conversion_cost(text, voice_type)
-    st.info(f"Estimated cost: ${estimated_cost:.4f} for {total_characters} characters.")
 
     audio_files = []
     for i, chunk in enumerate(chunks):
@@ -129,21 +98,15 @@ def text_to_speech_in_chunks(text, voice, voice_type, output_filename="output.mp
 def main():
     st.title("Text-to-Speech Converter")
 
-    # Step 1: Display available voices and organize by Neural and Standard
+    # Step 1: Display available voices organized by language
     voices = get_available_voices(api_key, region)
-    neural_voices, standard_voices = organize_voices_by_type(voices)
+    voices_by_language = organize_voices_by_language(voices)
 
-    # Step 2: Let user select the type of voice (Neural or Standard)
-    voice_type = st.selectbox("Select Voice Type", options=["Neural", "Standard"])
-
-    # Step 3: Display voices based on the selected type
-    if voice_type == "Neural":
-        selected_language = st.selectbox("Select Language", options=["English", "Spanish (Spain)"])
-        voice_options = {voice.short_name: f"{voice.local_name} ({REGION_MAPPING.get(voice.locale, voice.locale)})" for voice in neural_voices[selected_language]}
-    else:
-        selected_language = st.selectbox("Select Language", options=["English", "Spanish (Spain)"])
-        voice_options = {voice.short_name: f"{voice.local_name} ({REGION_MAPPING.get(voice.locale, voice.locale)})" for voice in standard_voices[selected_language]}
-
+    # Step 2: Let user select a language
+    selected_language = st.selectbox("Select Language", options=["English", "Spanish (Spain)"])
+    
+    # Step 3: Let user select a voice from the selected language
+    voice_options = {voice.short_name: f"{voice.local_name} ({REGION_MAPPING.get(voice.locale, voice.locale)})" for voice in voices_by_language[selected_language]}
     selected_voice = st.selectbox("Select Voice", options=list(voice_options.keys()), format_func=lambda x: voice_options[x])
 
     # Step 4: Voice preview
@@ -165,7 +128,7 @@ def main():
             if st.button("Convert to Speech"):
                 output_filename = "output.mp3"
                 # Convert text to speech in chunks
-                text_to_speech_in_chunks(text, selected_voice, voice_type, output_filename)
+                text_to_speech_in_chunks(text, selected_voice, output_filename)
         else:
             st.error("Unable to extract text from the uploaded file.")
 
